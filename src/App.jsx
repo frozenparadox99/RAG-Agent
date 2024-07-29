@@ -23,13 +23,42 @@ const override = {
 
 };
 
+const API_BASE_URL = '18.222.232.242'
+
 function App() {
+  const [chunkingStrategy, setChunkingStrategy] = useState("RecursiveCharacterTextSplitter");
+  const [metadata1, setMetaData1] = useState("");
+  const [metadata2, setMetaData2] = useState("");
+  const [metadata3, setMetaData3] = useState("");
+  
   const [files, setFiles] = useState(); 
+  const [dirNames, setDirNames] = useState([])
+  const [fileDict, setFileDict] = useState({})
   const [selectedFile, setSelectedFile] = useState(f[0]);
+  const [selectedFileMultiple, setSelectedFileMultiple] = useState(f[0]);
+  const [selectedDir, setSelectedDir] = useState('')
   let [color, setColor] = useState("#ffffff");
   let [loading, setLoading] = useState(false);
   const [showSources, setShowSources] = useState(true)
   let [isOpen, setIsOpen] = useState(false)
+  const [selectedOption, setSelectedOption] = useState('files')
+  const handleSelectionChange = (event) => {
+    setSelectedOption(event.target.value);
+  };
+
+  const handleStrategyChange = (event) => {
+    setChunkingStrategy(event.target.value);
+  };
+
+  const handleMetadata1 = (event) => {
+    setMetaData1(event.target.value);
+  };
+  const handleMetadata2 = (event) => {
+    setMetaData2(event.target.value);
+  };
+  const handleMetadata3 = (event) => {
+    setMetaData3(event.target.value);
+  };
 
   const open = () => {
     console.log("Opening")
@@ -44,6 +73,15 @@ function App() {
     console.log(event.target.value)
     setSelectedFile(event.target.value);
   };
+  const handleSelectedFileMultiple = (event) => {
+    console.log(event.target.value)
+    setSelectedFileMultiple(event.target.value);
+  };
+
+  const handleDirSelect = (event) => {
+    console.log(event.target.value)
+    setSelectedDir(event.target.value);
+  };
 
   const submitFile = async (file) => {
     try {
@@ -51,7 +89,44 @@ function App() {
       const formData = new FormData();
       formData.append('file', file);  // Append the file to FormData
 
-      const response = await fetch('http://18.221.233.48:5000/upload-pdf', {
+      let fetchStr = `http://18.222.232.242:5000/upload-pdf?chunking_type=${chunkingStrategy}&metadata_1=${metadata1!=''?metadata1:'None'}&metadata_2=${metadata2!=''?metadata2:'None'}&metadata_3=${metadata3!=''?metadata3:'None'}`
+
+      const response = await fetch(fetchStr, {
+        method: 'POST',
+        body: formData  // Send FormData as the body of the request
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upload file');
+      }
+
+      const data = await response.json();
+      console.log('File uploaded successfully:', data);
+      getFiles()
+      setLoading(false)
+      // Handle success (e.g., show a success message)
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      setLoading(false)
+      // Handle error (e.g., show an error message)
+    }
+  }
+
+  const submitMultipleFile = async (files, dirName) => {
+    try {
+      setLoading(true)
+      const formData = new FormData();
+      for (let i = 0; i < files.length; i++) {
+        formData.append('files', files[i]); // 'files' is the key, can be changed as per backend requirements
+      }
+      console.log("--------")
+      formData.forEach((value, key) => {
+        console.log(key, value);
+      });
+      console.log(dirName)
+      console.log("--------")
+      let fetchStr = `http://18.222.232.242:5000/upload-multiple-pdf?chunking_type=${chunkingStrategy}&dirname=${dirName}&metadata_1=${metadata1!=''?metadata1:'None'}&metadata_2=${metadata2!=''?metadata2:'None'}&metadata_3=${metadata3!=''?metadata3:'None'}`
+      const response = await fetch(fetchStr, {
         method: 'POST',
         body: formData  // Send FormData as the body of the request
       });
@@ -153,11 +228,12 @@ function App() {
       },
       body: JSON.stringify({
         query_text: text,
-        selected_file:selectedFile
+        selected_file:selectedOption==='directories'?selectedFileMultiple:selectedFile,
+        selected_dir:selectedOption==='directories'?selectedDir:''
       }),
     };
     const query = await fetch(
-      'http://18.221.233.48:5000/submit-query',
+      selectedOption==='directories'?'http://18.222.232.242:5000/submit-query-multiple':'http://18.222.232.242:5000/submit-query',
       options
     )
     const d = await query.json();
@@ -206,7 +282,8 @@ function App() {
       let ms = {
         role:"bot",
         content:d.response,
-        sources: d.src
+        sources: d.src,
+        lines: d.lines
       }
       setErrorText("");
       setMessage(ms);
@@ -298,7 +375,7 @@ function App() {
   }, []);
 
   const getGG = async () => {
-    const prevChats = await fetch('http://18.221.233.48:5000/get-chats')
+    const prevChats = await fetch('http://18.222.232.242:5000/get-chats')
     let d = await prevChats.json()
     let msgs = []
     for (const sessionId in d.sessions) {
@@ -316,10 +393,14 @@ function App() {
   }
 
   const getFiles = async () => {
-    const serverFiles = await fetch('http://18.221.233.48:5000/get-files')
+    const serverFiles = await fetch('http://18.222.232.242:5000/get-files')
     let d = await serverFiles.json()
     setFiles(d.files)
+    setDirNames(d.dir_names)
+    setFileDict(d.file_dict)
     console.log(d.files)
+    console.log(d.file_dict)
+    console.log(d.dir_names)
   }
   useEffect(() => {
     // getGG()
@@ -343,14 +424,16 @@ function App() {
         title: currentTitle,
         role: "user",
         content: text,
-        sources:[]
+        sources:[],
+        lines:[],
       };
 
       const responseMessage = {
         title: currentTitle,
         role: message.role,
         content: message.content,
-        sources: message.sources
+        sources: message.sources,
+        lines: message.lines
       };
 
       setPreviousChats((prevChats) => [...prevChats, newChat, responseMessage]);
@@ -442,7 +525,16 @@ function App() {
               <BiSolidUserCircle size={20} />
               <p>User</p>
             </div> */}
-                <LeftSection files={files} selectedFile={selectedFile} handleFileSelect={handleFileSelect} submitFile={submitFile} loading={loading} open={open}/>
+                <LeftSection dirNames={dirNames} 
+                fileDict={fileDict} selectedDir={selectedDir} 
+                handleDirSelect={handleDirSelect} 
+                files={files} selectedFile={selectedFile} 
+                handleFileSelect={handleFileSelect} submitFile={submitFile} 
+                loading={loading} open={open} submitMultipleFile={submitMultipleFile}
+                handleSelectionChange={handleSelectionChange}
+                selectedOption={selectedOption}
+                selectedFileMultiple={selectedFileMultiple} handleSelectedFileMultiple={handleSelectedFileMultiple}
+                />
           </div>
           
         </section>
@@ -531,8 +623,8 @@ function App() {
                             
                           </div>
                         </Modal> */}
-                        {chatMsg.sources && showSources &&chatMsg.sources.map(src =>(
-                          <p>- PDF: {src.split(':')[0]}, Page: {src.split(':')[1]}, Chunk: {src.split(':')[2]}</p>
+                        {chatMsg.sources && showSources &&chatMsg.sources.map((src, itdx) =>(
+                          <p>- PDF: {src.split(':')[0]}, Page: {src.split(':')[1]}, Chunk: {src.split(':')[2]}, Lines: {chatMsg.lines && chatMsg.lines[itdx]}</p>
                         ))}
                       </div>
                     )}
@@ -623,7 +715,8 @@ function App() {
           <label>
             Chunking Strategy
             <select 
-              defaultValue="RecursiveCharacterTextSplitter" 
+              value={chunkingStrategy} 
+              onChange={handleStrategyChange}
               style={{ 
                 marginTop:'5px',
                 display: 'block', 
@@ -636,9 +729,80 @@ function App() {
                 outline: 'none'
               }}
             >
-              <option value="RecursiveCharacterTextSplitter">RecursiveCharacterTextSplitter</option>
+              <option value="RecursiveCharacterTextSplitter">Recursive Character Text Splitter</option>
+              <option value="SemanticChunker">Semantic Chunker</option>
+              <option value="CharacterTextSplitter">Character Text Splitter</option>
               {/* Add more options here if needed */}
             </select>
+          </label>
+        </div>
+        <div style={{ marginBottom: '15px' }}>
+          <label>
+            MetaData 1
+            <input 
+            value={metadata1} 
+            onChange={handleMetadata1}
+              type="text" 
+              placeholder="Enter information about the file"
+              style={{ 
+                marginTop:'5px',
+                display: 'block', 
+                width: '100%', 
+                padding: '8px', 
+                boxSizing: 'border-box', 
+                backgroundColor: '#404150', 
+                color: '#fff',
+                border: '1px solid #555',
+                outline: 'none'
+              }} 
+            />
+            {/* <small style={{ display: 'block', marginTop: '5px', color: '#aaa' }}>Default: 200</small> */}
+          </label>
+        </div>
+        <div style={{ marginBottom: '15px' }}>
+          <label>
+            MetaData 2
+            <input 
+            value={metadata2} 
+            onChange={handleMetadata2}
+              type="text" 
+              placeholder="Enter information about the file"
+              style={{ 
+                marginTop:'5px',
+                display: 'block', 
+                width: '100%', 
+                padding: '8px', 
+                boxSizing: 'border-box', 
+                backgroundColor: '#404150', 
+                color: '#fff',
+                border: '1px solid #555',
+                outline: 'none'
+              }} 
+            />
+            {/* <small style={{ display: 'block', marginTop: '5px', color: '#aaa' }}>Default: 200</small> */}
+          </label>
+        </div>
+        <div style={{ marginBottom: '15px' }}>
+          <label>
+            MetaData 3
+            <input 
+            value={metadata3} 
+            onChange={handleMetadata3}
+              type="text" 
+              placeholder="Enter information about the file"
+              style={{ 
+                marginTop:'5px',
+                display: 'block', 
+                width: '100%', 
+                padding: '8px', 
+                boxSizing: 'border-box', 
+                backgroundColor: '#404150', 
+                color: '#fff',
+                border: '1px solid #555',
+                outline: 'none'
+              }} 
+            />
+            {/* <small style={{ display: 'block', marginTop: '5px', color: '#aaa' }}>Default: 200</small> */}
           </label>
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
