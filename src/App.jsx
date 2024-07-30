@@ -23,7 +23,7 @@ const override = {
 
 };
 
-const API_BASE_URL = '18.222.232.242'
+const API_BASE_URL = '18.188.132.225'
 
 function App() {
   const [chunkingStrategy, setChunkingStrategy] = useState("RecursiveCharacterTextSplitter");
@@ -89,7 +89,7 @@ function App() {
       const formData = new FormData();
       formData.append('file', file);  // Append the file to FormData
 
-      let fetchStr = `http://18.222.232.242:5000/upload-pdf?chunking_type=${chunkingStrategy}&metadata_1=${metadata1!=''?metadata1:'None'}&metadata_2=${metadata2!=''?metadata2:'None'}&metadata_3=${metadata3!=''?metadata3:'None'}`
+      let fetchStr = `http://${API_BASE_URL}:5000/upload-pdf?chunking_type=${chunkingStrategy}&metadata_1=${metadata1!=''?metadata1:'None'}&metadata_2=${metadata2!=''?metadata2:'None'}&metadata_3=${metadata3!=''?metadata3:'None'}`
 
       const response = await fetch(fetchStr, {
         method: 'POST',
@@ -125,7 +125,7 @@ function App() {
       });
       console.log(dirName)
       console.log("--------")
-      let fetchStr = `http://18.222.232.242:5000/upload-multiple-pdf?chunking_type=${chunkingStrategy}&dirname=${dirName}&metadata_1=${metadata1!=''?metadata1:'None'}&metadata_2=${metadata2!=''?metadata2:'None'}&metadata_3=${metadata3!=''?metadata3:'None'}`
+      let fetchStr = `http://${API_BASE_URL}:5000/upload-multiple-pdf?chunking_type=${chunkingStrategy}&dirname=${dirName}&metadata_1=${metadata1!=''?metadata1:'None'}&metadata_2=${metadata2!=''?metadata2:'None'}&metadata_3=${metadata3!=''?metadata3:'None'}`
       const response = await fetch(fetchStr, {
         method: 'POST',
         body: formData  // Send FormData as the body of the request
@@ -233,7 +233,7 @@ function App() {
       }),
     };
     const query = await fetch(
-      selectedOption==='directories'?'http://18.222.232.242:5000/submit-query-multiple':'http://18.222.232.242:5000/submit-query',
+      selectedOption==='directories'?`http://${API_BASE_URL}:5000/submit-query-multiple`:`http://${API_BASE_URL}:5000/submit-query`,
       options
     )
     const d = await query.json();
@@ -375,7 +375,7 @@ function App() {
   }, []);
 
   const getGG = async () => {
-    const prevChats = await fetch('http://18.222.232.242:5000/get-chats')
+    const prevChats = await fetch(`http://${API_BASE_URL}:5000/get-chats`)
     let d = await prevChats.json()
     let msgs = []
     for (const sessionId in d.sessions) {
@@ -393,7 +393,7 @@ function App() {
   }
 
   const getFiles = async () => {
-    const serverFiles = await fetch('http://18.222.232.242:5000/get-files')
+    const serverFiles = await fetch(`http://${API_BASE_URL}:5000/get-files`)
     let d = await serverFiles.json()
     setFiles(d.files)
     setDirNames(d.dir_names)
