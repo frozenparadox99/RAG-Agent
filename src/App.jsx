@@ -23,7 +23,7 @@ const override = {
 
 };
 
-const API_BASE_URL = '18.188.132.225'
+const API_BASE_URL = 'localhost'
 
 function App() {
   const [chunkingStrategy, setChunkingStrategy] = useState("RecursiveCharacterTextSplitter");
